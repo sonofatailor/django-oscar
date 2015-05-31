@@ -421,9 +421,9 @@ OSCAR_ORDER_STATUS_CASCADE = {
 # COMPRESS_ENABLED=False in your settings_local module and ensure you have
 # 'lessc' installed.
 
-USE_LESS = False
+USE_LESS = True
 
-COMPRESS_ENABLED = True
+COMPRESS_ENABLED = False
 COMPRESS_PRECOMPILERS = (
     ('text/less', 'lessc {infile} {outfile}'),
 )

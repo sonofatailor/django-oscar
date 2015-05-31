@@ -1,3 +1,5 @@
+import logging
+
 from django.views import generic
 from django.db.models import Q
 from django.http import HttpResponseRedirect
@@ -252,6 +254,8 @@ class ProductCreateUpdateView(generic.UpdateView):
             product = super(ProductCreateUpdateView, self).get_object(queryset)
             self.product_class = product.get_product_class()
             self.parent = product.parent
+            product.generate_variants()
+            logging.info("WTF")
             return product
 
     def get_context_data(self, **kwargs):

@@ -32,6 +32,8 @@ ProductManager, BrowsableProductManager = get_classes(
 
 Selector = get_class('partner.strategy', 'Selector')
 
+logger = logging.getLogger("oscar.catalogue.import")
+
 
 @python_2_unicode_compatible
 class AbstractProductClass(models.Model):
@@ -672,6 +674,19 @@ class AbstractProduct(models.Model):
         else:
             return False
 
+    def generate_variants(self):
+        pass
+        # product_class_attributes = self.product_class.attributes.all()
+
+        # attributes_with_options = []
+
+        # for attribute in product_class_attributes:
+        #     if attribute.type == "option":
+        #         attributes_with_options.append(attribute)
+
+        # for option in attribute.option_group.options.all():
+        #     logger.info(option)
+
     @cached_property
     def num_approved_reviews(self):
         return self.reviews.filter(
@@ -1062,6 +1077,26 @@ class AbstractAttributeOption(models.Model):
         'catalogue.AttributeOptionGroup', related_name='options',
         verbose_name=_("Group"))
     option = models.CharField(_('Option'), max_length=255)
+    option_image = models.ImageField(
+        upload_to=settings.OSCAR_IMAGE_FOLDER, max_length=255,
+        blank=True, null=True)
+
+    # Attribute types
+    TEXT = "text"
+    COLOR = "color"
+    IMAGE = "image"
+    TYPE_CHOICES = (
+        (TEXT, _("Text")),
+        (COLOR, _("Color")),
+        (IMAGE, _("Image")),
+    )
+
+    swatch_type = models.CharField(_('Swatch Type'), max_length=255, choices=TYPE_CHOICES, default=TYPE_CHOICES[0][0])
+
+    display_order = models.PositiveIntegerField(
+        _("Display order"), default=0,
+        help_text=_("An image with a display order of zero will be the primary"
+                    " image for a product"))
 
     def __str__(self):
         return self.option
