@@ -1015,6 +1015,16 @@ class AbstractProductAttributeValue(models.Model):
 
     value = property(_get_value, _set_value)
 
+    def _get_swatch_type(self):
+        if self.attribute.is_option:
+            return self.value_option.swatch_type
+        return "text"
+
+    def _set_swatch_type(self, new_swatch_type):
+        self.value_option.swatch_type = new_swatch_type
+
+    value_swatch_type = property(_get_swatch_type, _set_swatch_type)
+
     class Meta:
         abstract = True
         app_label = 'catalogue'
@@ -1030,7 +1040,7 @@ class AbstractProductAttributeValue(models.Model):
         Gets a string representation of both the attribute and it's value,
         used e.g in product summaries.
         """
-        return u"%s: %s" % (self.attribute.name, self.value_as_text)
+        return u"%s: %s: %s" % (self.attribute.name, self.value_as_text, self.value_swatch_type)
 
     @property
     def value_as_text(self):
@@ -1103,7 +1113,9 @@ class AbstractAttributeOption(models.Model):
     group = models.ForeignKey(
         'catalogue.AttributeOptionGroup', related_name='options',
         verbose_name=_("Group"))
-    option = models.CharField(_('Option'), max_length=255)
+
+    option_text = models.CharField(_('Option Text'), max_length=255, default="")
+    option_color = models.CharField(_('Option Color'), max_length=255, blank=True)
     option_image = models.ImageField(
         upload_to=settings.OSCAR_IMAGE_FOLDER, max_length=255,
         blank=True, null=True)
@@ -1124,6 +1136,18 @@ class AbstractAttributeOption(models.Model):
         _("Display order"), default=0,
         help_text=_("An image with a display order of zero will be the primary"
                     " image for a product"))
+
+    def _get_value(self):
+        return getattr(self, 'option_%s' % self.swatch_type)
+
+    def _set_value(self, new_value):
+        if isinstance(new_value, str):
+            # Need to look up instance of AttributeOption
+            new_value = self.group.options.get(
+                option=new_value)
+        setattr(self, 'option_%s' % self.swatch_type, new_value)
+
+    option = property(_get_value, _set_value)
 
     def __str__(self):
         return self.option

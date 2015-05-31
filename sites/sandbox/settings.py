@@ -124,6 +124,7 @@ SECRET_KEY = '$)a7n&o80u!6y5t-+jrd3)3!%vh&shg$wqpjpxc!ar&p#!)n1a'
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.Loader',
+    'wq.db.rest.template.Loader',
     'django.template.loaders.app_directories.Loader',
     # needed by django-treebeard for admin (and potentially other libs)
     'django.template.loaders.eggs.Loader',
@@ -143,7 +144,15 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     'oscar.apps.checkout.context_processors.checkout',
     'oscar.core.context_processors.metadata',
     'oscar.apps.customer.notifications.context_processors.notifications',
+    # wq specific
+    'wq.db.rest.auth.context_processors.is_authenticated',
+    'wq.db.rest.auth.context_processors.social_auth',
+    'wq.db.rest.context_processors.version',
+    'wq.db.rest.context_processors.pages_info',
+    'wq.db.rest.context_processors.wq_config',
 )
+
+SESSION_COOKIE_HTTPONLY = False
 
 MIDDLEWARE_CLASSES = (
     'debug_toolbar.middleware.DebugToolbarMiddleware',
@@ -457,6 +466,49 @@ THUMBNAIL_KEY_PREFIX = 'oscar-sandbox'
 # django/core/serializers/json.Serializer to have the `dumps` function. Also
 # in tests/config.py
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer'
+
+# Django Rest Framework settings
+REST_FRAMEWORK = {
+
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.TemplateHTMLRenderer',
+        'wq.db.rest.renderers.JSONRenderer',
+        'wq.db.rest.renderers.GeoJSONRenderer',
+    ),
+
+    'PAGE_SIZE': 50,
+    'DEFAULT_PAGINATION_CLASS': 'wq.db.rest.pagination.Pagination',
+
+    'DEFAULT_PERMISSION_CLASSES': (
+        'wq.db.rest.permissions.ModelPermissions',
+    ),
+
+    'DEFAULT_FILTER_BACKENDS': (
+        'wq.db.rest.filters.FilterBackend',
+    ),
+
+    'CHARSET': 'utf-8'
+}
+
+# Django Social Auth settings
+SOCIAL_AUTH_PIPELINE = (
+    'social.pipeline.social_auth.social_details',
+    'social.pipeline.social_auth.social_uid',
+    'social.pipeline.social_auth.auth_allowed',
+    'social.pipeline.social_auth.social_user',
+    'social.pipeline.user.get_username',
+    'social.pipeline.user.create_user',
+    'social.pipeline.social_auth.associate_user',
+    'social.pipeline.social_auth.load_extra_data',
+    'social.pipeline.user.user_details',
+    'wq.db.rest.auth.pipeline.assign_default_group',
+)
+
+# wq.db settings
+ANONYMOUS_PERMISSIONS = tuple()
+SRID = 4326
+DEFAULT_AUTH_GROUP = "Users"
+DISAMBIGUATE = True
 
 # Try and import local settings which can be used to override any of the above.
 try:

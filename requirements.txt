@@ -42,3 +42,6 @@ ipython==2.3.0
 
 # Country data
 pycountry==1.8
+
+# API
+git+https://github.com/wq/wq.db.git
