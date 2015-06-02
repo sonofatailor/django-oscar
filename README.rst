@@ -1,3 +1,21 @@
+===================================
+Domain-driven e-commerce for Django
+===================================
+
+This is fork of the most popular e-commerce framework for Django. This fork was created, because we wan't to make big and breaking changes, that will excell this framework.
+
+The major changes are:
+
+  - New product model
+
+  - SPA dashboard
+
+  - Integrated full coverage API
+
+
+It is mainly the Catalogue app that will be changed, and hopefully, we will be able to pull in new features from the original framework
+
+
 .. image:: https://github.com/django-oscar/django-oscar/raw/master/docs/images/logos/oscar.png
     :target: http://oscarcommerce.com
 
