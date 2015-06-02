@@ -85,12 +85,13 @@ class AbstractStockRecord(models.Model):
     Stockrecords are used by 'strategies' to determine availability and pricing
     information for the customer.
     """
-    product = models.ForeignKey(
-        'catalogue.Product', related_name="stockrecords",
+    product_variant = models.ForeignKey(
+        'catalogue.ProductVariant', related_name="stockrecords",
         verbose_name=_("Product"))
+
     partner = models.ForeignKey(
         'partner.Partner', verbose_name=_("Partner"),
-        related_name='stockrecords')
+        related_name='stockrecords', null=True)
 
     #: The fulfilment partner will often have their own SKU for a product,
     #: which we store here.  This will sometimes be the same the product's UPC
@@ -142,12 +143,14 @@ class AbstractStockRecord(models.Model):
 
     # Date information
     date_created = models.DateTimeField(_("Date created"), auto_now_add=True)
-    date_updated = models.DateTimeField(_("Date updated"), auto_now=True,
-                                        db_index=True)
+    date_updated = models.DateTimeField(_("Date updated"), auto_now=True, db_index=True)
 
     def __str__(self):
-        msg = u"Partner: %s, product: %s" % (
-            self.partner.display_name, self.product,)
+        if self.partner:
+            msg = u"Partner: %s " % self.partner.display_name
+
+        msg = "%s Product: %s" % (msg, self.product_variant.parent)
+
         if self.partner_sku:
             msg = u"%s (%s)" % (msg, self.partner_sku)
         return msg

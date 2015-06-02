@@ -35,6 +35,13 @@ if not is_model_registered('catalogue', 'Product'):
     __all__.append('Product')
 
 
+if not is_model_registered('catalogue', 'ProductVariant'):
+    class ProductVariant(AbstractProductVariant):
+        pass
+
+    __all__.append('ProductVariant')
+
+
 if not is_model_registered('catalogue', 'ProductRecommendation'):
     class ProductRecommendation(AbstractProductRecommendation):
         pass
@@ -42,18 +49,25 @@ if not is_model_registered('catalogue', 'ProductRecommendation'):
     __all__.append('ProductRecommendation')
 
 
-if not is_model_registered('catalogue', 'ProductAttribute'):
-    class ProductAttribute(AbstractProductAttribute):
+if not is_model_registered('catalogue', 'Attribute'):
+    class Attribute(AbstractAttribute):
         pass
 
     __all__.append('ProductAttribute')
 
 
-if not is_model_registered('catalogue', 'ProductAttributeValue'):
-    class ProductAttributeValue(AbstractProductAttributeValue):
+if not is_model_registered('catalogue', 'AttributeValue'):
+    class AttributeValue(AbstractAttributeValue):
         pass
 
-    __all__.append('ProductAttributeValue')
+    __all__.append('AttributeValue')
+
+
+if not is_model_registered('catalogue', 'ProductVariantAttributeValue'):
+    class ProductVariantAttributeValue(AbstractProductVariantAttributeValue):
+        pass
+
+    __all__.append('ProductVariantAttributeValue')
 
 
 if not is_model_registered('catalogue', 'AttributeOptionGroup'):
@@ -61,13 +75,6 @@ if not is_model_registered('catalogue', 'AttributeOptionGroup'):
         pass
 
     __all__.append('AttributeOptionGroup')
-
-
-if not is_model_registered('catalogue', 'AttributeOption'):
-    class AttributeOption(AbstractAttributeOption):
-        pass
-
-    __all__.append('AttributeOption')
 
 
 if not is_model_registered('catalogue', 'Option'):

@@ -7,8 +7,6 @@ from django.core.urlresolvers import reverse_lazy
 from oscar.core.application import Application
 from oscar.core.loading import get_class
 from oscar.views.decorators import login_forbidden
-from wq.db import rest
-rest.autodiscover()
 
 
 class Shop(Application):
@@ -20,7 +18,6 @@ class Shop(Application):
     checkout_app = get_class('checkout.app', 'application')
     promotions_app = get_class('promotions.app', 'application')
     search_app = get_class('search.app', 'application')
-    dashboard_app = get_class('dashboard.app', 'application')
     offer_app = get_class('offer.app', 'application')
 
     password_reset_form = get_class('customer.forms', 'PasswordResetForm')
@@ -33,9 +30,7 @@ class Shop(Application):
             url(r'^checkout/', include(self.checkout_app.urls)),
             url(r'^accounts/', include(self.customer_app.urls)),
             url(r'^search/', include(self.search_app.urls)),
-            url(r'^dashboard/', include(self.dashboard_app.urls)),
             url(r'^offers/', include(self.offer_app.urls)),
-            url(r'^api/', include(rest.router.urls)),
 
             # Password reset - as we're using Django's default view functions,
             # we can't namespace these urls as that prevents

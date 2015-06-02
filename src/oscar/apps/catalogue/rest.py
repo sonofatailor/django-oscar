@@ -1,6 +1,7 @@
 from wq.db import rest
 from oscar.core.loading import get_model
-from .serializers import ProductSerializer
+from .view_sets import ProductViewSet
+from serializers import ProductSerializer
 
 
 ProductClass = get_model('catalogue', 'ProductClass')
@@ -10,5 +11,5 @@ Product = get_model('catalogue', 'Product')
 ProductRecommendation = get_model('catalogue', 'ProductRecommendation')
 
 rest.router.register_model(ProductClass)
-rest.router.register_model(Product, serializer=ProductSerializer, queryset=Product.objects.all().select_related('product_class', 'parent').prefetch_related('attribute_values', 'attribute_values__attribute'))
+rest.router.register_model(Product, viewset=ProductViewSet, serializer=ProductSerializer)
 rest.router.register_model(Category)

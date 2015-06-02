@@ -3,6 +3,7 @@ from django.conf.urls import include, url
 from django.conf.urls.i18n import i18n_patterns
 from django.conf.urls.static import static
 from django.contrib import admin
+from wq.db import rest
 
 from oscar.app import application
 from oscar.views import handler500, handler404, handler403
@@ -11,11 +12,13 @@ from apps.sitemaps import base_sitemaps
 
 
 admin.autodiscover()
+rest.autodiscover()
 
 urlpatterns = [
     # Include admin as convenience. It's unsupported and only included
     # for developers.
     url(r'^admin/', include(admin.site.urls)),
+    url(r'^api/', include(rest.router.urls)),
     # i18n URLS need to live outside of i18n_patterns scope of Oscar
     url(r'^i18n/', include('django.conf.urls.i18n')),
     # include a basic sitemap

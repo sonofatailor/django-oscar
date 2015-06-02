@@ -143,7 +143,7 @@ class Structured(Base):
         Select appropriate stock record for all children of a product
         """
         records = []
-        for child in product.children.all():
+        for child in product.variants.all():
             # Use tuples of (child product, stockrecord)
             records.append((child, self.select_stockrecord(child)))
         return records
@@ -187,9 +187,9 @@ class UseFirstStockRecord(object):
     product was permitted.
     """
 
-    def select_stockrecord(self, product):
+    def select_stockrecord(self, product_variant):
         try:
-            return product.stockrecords.all()[0]
+            return product_variant.stockrecords.all()[0]
         except IndexError:
             return None
 
@@ -204,11 +204,11 @@ class StockRequired(object):
     def availability_policy(self, product, stockrecord):
         if not stockrecord:
             return availability.Unavailable()
+
         if not product.get_product_class().track_stock:
             return availability.Available()
         else:
-            return availability.StockRequired(
-                stockrecord.net_stock_level)
+            return availability.StockRequired(stockrecord.net_stock_level)
 
     def parent_availability_policy(self, product, children_stock):
         # A parent product is available if one of its children is
