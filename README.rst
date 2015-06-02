@@ -1,5 +1,5 @@
 ===================================
-Domain-driven e-commerce for Django
+This is a fork of the framework Django Oscar
 ===================================
 
 This is fork of the most popular e-commerce framework for Django. This fork was created, because we wan't to make big and breaking changes, that will excell this framework.
