@@ -6,15 +6,16 @@ This is fork of the most popular e-commerce framework for Django. This fork was 
 
 The major changes are:
 
-  - New product model
+  - New product model, to better support attributes and variants
 
-  - SPA dashboard
+  - SPA dashboard in AngularJS
 
-  - Integrated full coverage API
+  - Integrated full coverage API, to support more use cases
 
 
 It is mainly the Catalogue app that will be changed, and hopefully, we will be able to pull in new features from the original framework
 
+Feel free to write me @jakobholmelund if you wan't to contribute. We will need skills in many areas.
 
 .. image:: https://github.com/django-oscar/django-oscar/raw/master/docs/images/logos/oscar.png
     :target: http://oscarcommerce.com
