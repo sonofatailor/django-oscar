@@ -355,11 +355,6 @@ class AbstractProduct(models.Model):
         Because the validation logic is quite complex, validation is delegated
         to the sub method appropriate for the product's structure.
         """
-        getattr(self, '_clean_%s' % self.structure)()
-        if not self.is_parent:
-            self.attr.validate_attributes()
-
-    def _clean_standalone(self):
         """
         Validates a stand-alone product
         """
@@ -367,62 +362,14 @@ class AbstractProduct(models.Model):
             raise ValidationError(_("Your product must have a title."))
         if not self.product_class:
             raise ValidationError(_("Your product must have a product class."))
-        if self.parent_id:
-            raise ValidationError(_("Only child products can have a parent."))
-        if self.pk and self.child_images.exists():
-            raise ValidationError(_("Only child products can have child images."))
-
-    def _clean_child(self):
-        """
-        Validates a child product
-        """
-        if not self.parent_id:
-            raise ValidationError(_("A child product needs a parent."))
-        if self.parent_id and not self.parent.is_parent:
-            raise ValidationError(
-                _("You can only assign child products to parent products."))
-        if self.product_class:
-            raise ValidationError(
-                _("A child product can't have a product class."))
-        if self.pk and self.categories.exists():
-            raise ValidationError(
-                _("A child product can't have a category assigned."))
-        # Note that we only forbid options on product level
-        if self.pk and self.product_options.exists():
-            raise ValidationError(
-                _("A child product can't have options."))
-
-    def _clean_parent(self):
-        """
-        Validates a parent product.
-        """
-        self._clean_standalone()
-        if self.has_stockrecords:
-            raise ValidationError(
-                _("A parent product can't have stockrecords."))
-        if self.child_images.exists():
-            raise ValidationError(
-                _("A parent product can't have child images."))
 
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.get_title())
         super(AbstractProduct, self).save(*args, **kwargs)
-        self.attr.save()
+        # self.attr.save()
 
     # Properties
-
-    @property
-    def is_standalone(self):
-        return self.structure == self.STANDALONE
-
-    @property
-    def is_parent(self):
-        return self.structure == self.PARENT
-
-    @property
-    def is_child(self):
-        return self.structure == self.CHILD
 
     def can_be_parent(self, give_reason=False):
         """
@@ -550,11 +497,7 @@ class AbstractProduct(models.Model):
         """
         Returns the correct related manager for images
         """
-
-        if self.structure == self.CHILD:
-            return self.child_images
-        else:
-            return self.images
+        return self.images
 
     def primary_image(self):
         """
@@ -662,7 +605,7 @@ class AbstractProductVariant(models.Model):
         'catalogue.Attribute',
         through='ProductVariantAttributeValue',
         verbose_name=_("Attributes"),
-        help_text=_("A product attribute is something that this product may "
+        help_text=_("A product variant attribute is something that this product may "
                     "have, such as a size, as specified by its class"))
 
     # This field is used to determine which images are associated with which child/variant
@@ -702,7 +645,7 @@ class AbstractProductVariant(models.Model):
         return self.title
 
     def __init__(self, *args, **kwargs):
-        super(AbstractProduct, self).__init__(*args, **kwargs)
+        super(AbstractProductVariant, self).__init__(*args, **kwargs)
         self.attr = ProductVariantAttributesContainer(product_variant=self)
 
     def get_title(self):
@@ -728,8 +671,8 @@ class AbstractProductVariant(models.Model):
         """
         Return a string of all of a product's attributes
         """
-        attributes = self.attribute_values.all()
-        pairs = [attribute.summary() for attribute in attributes]
+        attributes_values = self.attribute_values.all()
+        pairs = [variant_attribute.attribute_value.summary() for variant_attribute in attributes_values]
         return ", ".join(pairs)
 
     def get_is_discountable(self):
@@ -866,11 +809,6 @@ class AbstractAttribute(models.Model):
         choices=TYPE_CHOICES, default=TYPE_CHOICES[0][0],
         max_length=20, verbose_name=_("Type"))
 
-    option_group = models.ForeignKey(
-        'catalogue.AttributeOptionGroup', blank=True, null=True,
-        verbose_name=_("Option Group"),
-        help_text=_('Select an option group if using type "Option"'))
-
     required = models.BooleanField(_('Required'), default=False)
 
     display_order = models.PositiveIntegerField(
@@ -882,8 +820,8 @@ class AbstractAttribute(models.Model):
         abstract = True
         app_label = 'catalogue'
         ordering = ['code']
-        verbose_name = _('Product attribute')
-        verbose_name_plural = _('Product attributes')
+        verbose_name = _('Attribute')
+        verbose_name_plural = _('Attributes')
 
     @property
     def is_option(self):
@@ -991,17 +929,19 @@ class AbstractProductVariantAttributeValue(models.Model):
     attribute = models.ForeignKey(
         'catalogue.Attribute', verbose_name=_("Attribute"), null=True, blank=True)
     attribute_value = models.ForeignKey(
-        'catalogue.AttributeValue', verbose_name=_("Attribute Value"), related_name="attribute_values")
+        'catalogue.AttributeValue', verbose_name=_("Attribute Value"))
 
     def __str__(self):
-        return self.name
+        if self.attribute:
+            return self.attribute.name
+        return "Test"
 
     class Meta:
         abstract = True
         app_label = 'catalogue'
         unique_together = ('attribute', 'product_variant', 'attribute_value')
-        verbose_name = _('Product attribute value')
-        verbose_name_plural = _('Product attribute values')
+        verbose_name = _('Product variant attribute value')
+        verbose_name_plural = _('Product variant attribute values')
 
 
 @python_2_unicode_compatible
@@ -1013,6 +953,9 @@ class AbstractAttributeValue(models.Model):
 
     For example: number_of_pages = 295
     """
+    attribute = models.ForeignKey(
+        'catalogue.Attribute', verbose_name=_("Attribute"), blank=True, null=True)
+
     value_text = models.TextField(_('Text'), blank=True, null=True)
     value_integer = models.IntegerField(_('Integer'), blank=True, null=True)
     value_boolean = models.NullBooleanField(_('Boolean'), blank=True)
@@ -1020,8 +963,8 @@ class AbstractAttributeValue(models.Model):
     value_richtext = models.TextField(_('Richtext'), blank=True, null=True)
     value_date = models.DateField(_('Date'), blank=True, null=True)
     value_option = models.ForeignKey(
-        'catalogue.AttributeOptionGroup', blank=True, null=True,
-        verbose_name=_("Value option"), related_name="option_values")
+        'self', blank=True, null=True,
+        verbose_name=_("Value option"), related_name="attribute_values")
     value_image = models.ImageField(
         upload_to=settings.OSCAR_IMAGE_FOLDER, max_length=255,
         blank=True, null=True)
@@ -1055,7 +998,7 @@ class AbstractAttributeValue(models.Model):
     value = property(_get_value, _set_value)
 
     def _get_swatch_type(self):
-        if self.attribute.is_option:
+        if self.attribute and self.attribute.is_option:
             return self.value_option.swatch_type
         return "text"
 
@@ -1078,7 +1021,8 @@ class AbstractAttributeValue(models.Model):
         Gets a string representation of both the attribute and it's value,
         used e.g in product summaries.
         """
-        return u"%s: %s: %s" % (self.attribute.name, self.value_as_text, self.value_swatch_type)
+
+        return u"%s: %s: %s" % ((self.attribute and self.attribute.name) or "ProductVariant Value", self.value_as_text, self.value_swatch_type)
 
     @property
     def value_as_text(self):
@@ -1087,8 +1031,11 @@ class AbstractAttributeValue(models.Model):
         e.g. image attribute values, declare a _image_as_text property and
         return something appropriate.
         """
-        property_name = '_%s_as_text' % self.attribute.type
-        return getattr(self, property_name, self.value)
+        if self.attribute:
+            property_name = '_%s_as_text' % self.attribute.type
+            return getattr(self, property_name, self.value)
+
+        return self.value_text
 
     @property
     def _richtext_as_text(self):
@@ -1109,37 +1056,15 @@ class AbstractAttributeValue(models.Model):
         e.g. image attribute values, declare a _image_as_html property and
         return e.g. an <img> tag.  Defaults to the _as_text representation.
         """
-        property_name = '_%s_as_html' % self.attribute.type
-        return getattr(self, property_name, self.value_as_text)
+        if self.attribute:
+            property_name = '_%s_as_html' % self.attribute.type
+            return getattr(self, property_name, self.value_as_text)
+
+        return self.value_text
 
     @property
     def _richtext_as_html(self):
         return mark_safe(self.value)
-
-
-@python_2_unicode_compatible
-class AbstractAttributeOptionGroup(models.Model):
-    """
-    Defines a group of options that collectively may be used as an
-    attribute type
-
-    For example, Language
-    """
-    name = models.CharField(_('Name'), max_length=128)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        abstract = True
-        app_label = 'catalogue'
-        verbose_name = _('Attribute option group')
-        verbose_name_plural = _('Attribute option groups')
-
-    @property
-    def option_summary(self):
-        option_values = [o.value for o in self.option_values.all()]
-        return ", ".join(option_values)
 
 
 @python_2_unicode_compatible

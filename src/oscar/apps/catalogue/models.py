@@ -70,13 +70,6 @@ if not is_model_registered('catalogue', 'ProductVariantAttributeValue'):
     __all__.append('ProductVariantAttributeValue')
 
 
-if not is_model_registered('catalogue', 'AttributeOptionGroup'):
-    class AttributeOptionGroup(AbstractAttributeOptionGroup):
-        pass
-
-    __all__.append('AttributeOptionGroup')
-
-
 if not is_model_registered('catalogue', 'Option'):
     class Option(AbstractOption):
         pass

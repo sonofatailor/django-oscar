@@ -2,10 +2,10 @@ from django.contrib import admin
 from oscar.core.loading import get_model
 from treebeard.admin import TreeAdmin
 
-AttributeOptionGroup = get_model('catalogue', 'AttributeOptionGroup')
 Category = get_model('catalogue', 'Category')
 Option = get_model('catalogue', 'Option')
 Product = get_model('catalogue', 'Product')
+ProductVariant = get_model('catalogue', 'ProductVariant')
 Attribute = get_model('catalogue', 'Attribute')
 AttributeValue = get_model('catalogue', 'AttributeValue')
 ProductVariantAttributeValue = get_model('catalogue', 'ProductVariantAttributeValue')
@@ -30,31 +30,18 @@ class AttributeInline(admin.TabularInline):
     extra = 2
 
 
+class ProductVariantAttributeValueInline(admin.TabularInline):
+    model = ProductVariantAttributeValue
+
+
 class ProductClassAdmin(admin.ModelAdmin):
     list_display = ('name', 'requires_shipping', 'track_stock')
 
 
-class ProductAdmin(admin.ModelAdmin):
-    date_hierarchy = 'date_created'
-    list_filter = ['is_discountable']
-    inlines = [CategoryInline, ProductRecommendationInline]
-    prepopulated_fields = {"slug": ("title",)}
-
-    def get_queryset(self, request):
-        qs = super(ProductAdmin, self).get_queryset(request)
-        return (
-            qs
-            .select_related('parent')
-            .prefetch_related(
-                'variants'))
-
-
 class ProductVariantAdmin(admin.ModelAdmin):
-    list_display = ('get_title', 'upc', 'get_product_class', 'structure',
+    list_display = ('get_title', 'upc',
                     'attribute_summary', 'date_created')
-    list_filter = ['structure', 'is_discountable']
-    search_fields = ['upc', 'title']
-    inlines = [AttributeInline]
+    inlines = [ProductVariantAttributeValueInline, ]
 
     def get_queryset(self, request):
         qs = super(ProductVariantAdmin, self).get_queryset(request)
@@ -66,9 +53,23 @@ class ProductVariantAdmin(admin.ModelAdmin):
                 'attribute_values__attribute'))
 
 
-class AttributeAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'type')
-    prepopulated_fields = {"code": ("name", )}
+class ProductVariantAdminInline(admin.TabularInline):
+    model = ProductVariant
+    extra = 2
+
+
+class ProductAdmin(admin.ModelAdmin):
+    date_hierarchy = 'date_created'
+    list_filter = ['is_discountable']
+    inlines = [ProductVariantAdminInline, CategoryInline, ProductRecommendationInline]
+    prepopulated_fields = {"slug": ("title",)}
+
+    def get_queryset(self, request):
+        qs = super(ProductAdmin, self).get_queryset(request)
+        return (
+            qs
+            .prefetch_related(
+                'variants'))
 
 
 class OptionAdmin(admin.ModelAdmin):
@@ -81,10 +82,12 @@ class ProductVariantAttributeValueAdmin(admin.ModelAdmin):
 
 class AttributeValueInline(admin.TabularInline):
     model = AttributeValue
+    fk_name = 'attribute'
 
 
-class AttributeOptionGroupAdmin(admin.ModelAdmin):
-    list_display = ('name', 'option_summary')
+class AttributeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'code', 'type')
+    prepopulated_fields = {"code": ("name", )}
     inlines = [AttributeValueInline, ]
 
 
@@ -94,10 +97,10 @@ class CategoryAdmin(TreeAdmin):
 
 admin.site.register(ProductClass, ProductClassAdmin)
 admin.site.register(Product, ProductAdmin)
+admin.site.register(ProductVariant, ProductVariantAdmin)
 admin.site.register(Attribute, AttributeAdmin)
 # admin.site.register(AttributeValue, AttributeValueAdmin)
 admin.site.register(ProductVariantAttributeValue, ProductVariantAttributeValueAdmin)
-admin.site.register(AttributeOptionGroup, AttributeOptionGroupAdmin)
 admin.site.register(Option, OptionAdmin)
 admin.site.register(ProductImage)
 admin.site.register(Category, CategoryAdmin)
