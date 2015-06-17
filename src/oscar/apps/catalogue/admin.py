@@ -1,7 +1,10 @@
 from django.contrib import admin
-from oscar.core.loading import get_model
 from treebeard.admin import TreeAdmin
 
+from oscar.core.loading import get_model
+
+AttributeOption = get_model('catalogue', 'AttributeOption')
+AttributeOptionGroup = get_model('catalogue', 'AttributeOptionGroup')
 Category = get_model('catalogue', 'Category')
 Option = get_model('catalogue', 'Option')
 Product = get_model('catalogue', 'Product')
