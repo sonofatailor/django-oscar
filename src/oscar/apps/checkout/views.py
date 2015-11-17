@@ -1,17 +1,18 @@
 import logging
 
 from django import http
-from django.shortcuts import redirect
 from django.contrib import messages
 from django.contrib.auth import login
 from django.core.urlresolvers import reverse, reverse_lazy
+from django.shortcuts import redirect
+from django.utils import six
 from django.utils.http import urlquote
 from django.utils.translation import ugettext as _
-from django.utils import six
 from django.views import generic
 
 from oscar.apps.shipping.methods import NoShippingRequired
 from oscar.core.loading import get_class, get_classes, get_model
+
 from . import signals
 
 ShippingAddressForm, GatewayForm \
@@ -139,6 +140,7 @@ class ShippingAddressView(CheckoutSessionMixin, generic.FormView):
     def get_initial(self):
         initial = self.checkout_session.new_shipping_address_fields()
         if initial:
+            initial = initial.copy()
             # Convert the primary key stored in the session into a Country
             # instance
             try:
