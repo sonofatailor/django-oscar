@@ -80,9 +80,7 @@ class AbstractOrder(models.Model):
 
     # Use this field to indicate that an order is on hold / awaiting payment
     status = models.CharField(_("Status"), max_length=100, blank=True)
-    # TODO Remove the max_length kwarg when support for Django 1.7 is dropped
-    guest_email = models.EmailField(_("Guest email address"), max_length=75,
-                                    blank=True)
+    guest_email = models.EmailField(_("Guest email address"), blank=True)
 
     # Index added to this field for reporting
     date_placed = models.DateTimeField(db_index=True)
@@ -502,6 +500,8 @@ class AbstractLine(models.Model):
     class Meta:
         abstract = True
         app_label = 'order'
+        # Enforce sorting in order of creation.
+        ordering = ['pk']
         verbose_name = _("Order Line")
         verbose_name_plural = _("Order Lines")
 

@@ -1,4 +1,4 @@
-import datetime
+from django.utils import timezone
 import json
 
 from django.contrib import messages
@@ -57,8 +57,8 @@ class OfferListView(ListView):
             self.is_filtered = True
         if data['is_active']:
             self.is_filtered = True
-            today = datetime.date.today()
-            qs = qs.filter(start_date__lte=today, end_date__gte=today)
+            today = timezone.now()
+            qs = qs.filter(start_datetime__lte=today, end_datetime__gte=today)
 
         return qs
 
@@ -219,12 +219,18 @@ class OfferWizardStepView(FormView):
         offer.description = session_offer.description
 
         # Save the related models, then save the offer.
+        # Note than you can save already on the first page of the wizard,
+        # so le'ts check if the benefit and condition exist
         benefit = self._fetch_object('benefit')
-        benefit.save()
+        if benefit:
+            benefit.save()
+            offer.benefit = benefit
+
         condition = self._fetch_object('condition')
-        condition.save()
-        offer.benefit = benefit
-        offer.condition = condition
+        if condition:
+            condition.save()
+            offer.condition = condition
+
         offer.save()
 
         self._flush_session()
@@ -360,7 +366,8 @@ class OfferDetailView(ListView):
             reverse('dashboard:offer-detail', kwargs={'pk': self.offer.pk}))
 
     def get_queryset(self):
-        return self.model.objects.filter(offer_id=self.offer.pk)
+        return self.model.objects.filter(offer_id=self.offer.pk) \
+            .select_related('order')
 
     def get_context_data(self, **kwargs):
         ctx = super(OfferDetailView, self).get_context_data(**kwargs)
