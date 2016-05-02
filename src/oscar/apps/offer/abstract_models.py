@@ -410,7 +410,7 @@ class AbstractBenefit(models.Model):
     # (eg for multibuy) or a decimal (eg an amount) which is slightly
     # confusing.
     value = fields.PositiveDecimalField(
-        _("Value"), decimal_places=2, max_digits=12, null=True, blank=True)
+        _("Value"), decimal_places=4, max_digits=12, null=True, blank=True)
 
     # If this is not set, then there is no upper limit on how many products
     # can be discounted by this benefit.
