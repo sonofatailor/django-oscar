@@ -1191,7 +1191,7 @@ class AbstractProductImage(models.Model):
     An image of a product
     """
     product = models.ForeignKey(
-        'catalogue.Product', related_name='images', verbose_name=_("Product"), on_delete=models.SET_NULL)
+        'catalogue.Product', related_name='images', verbose_name=_("Product"))
     original = models.ImageField(
         _("Original"), upload_to=settings.OSCAR_IMAGE_FOLDER, max_length=255)
     caption = models.CharField(_("Caption"), max_length=200, blank=True)
