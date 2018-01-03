@@ -1,10 +1,11 @@
+import copy
 import re
 
+import django
 from django import forms
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.forms.utils import flatatt
 from django.forms.widgets import FileInput
-from django.template import Context
 from django.template.loader import render_to_string
 from django.utils import formats, six
 from django.utils.encoding import force_text
@@ -25,7 +26,7 @@ class ImageInput(FileInput):
     template_name = 'partials/image_input_widget.html'
     attrs = {'accept': 'image/*'}
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         """
         Render the ``input`` field based on the defined ``template_name``. The
         image URL is take from *value* and is provided to the template as
@@ -35,19 +36,26 @@ class ImageInput(FileInput):
         If *value* contains no valid image URL an empty string will be provided
         in the context.
         """
-        final_attrs = self.build_attrs(attrs, type=self.input_type, name=name)
+        extra_attrs = {
+            'type': self.input_type,
+            'name': name,
+        }
+        if django.VERSION < (1, 11):
+            final_attrs = self.build_attrs(attrs, **extra_attrs)
+        else:
+            final_attrs = self.build_attrs(attrs, extra_attrs=extra_attrs)
+
         if not value or isinstance(value, InMemoryUploadedFile):
             # can't display images that aren't stored
             image_url = ''
         else:
-            image_url = final_attrs['value'] = force_text(
-                self._format_value(value))
+            image_url = final_attrs['value'] = value
 
-        return render_to_string(self.template_name, Context({
+        return render_to_string(self.template_name, {
             'input_attrs': flatatt(final_attrs),
             'image_url': image_url,
             'image_id': "%s-image" % final_attrs['id'],
-        }))
+        })
 
 
 class WYSIWYGTextArea(forms.Textarea):
@@ -135,24 +143,15 @@ def datetime_format_to_js_input_mask(format):
 
 
 class DateTimeWidgetMixin(object):
-    def get_format(self):
-        format = self.format
-        if hasattr(self, 'manual_format'):
-            # For django <= 1.6.5, see
-            # https://code.djangoproject.com/ticket/21173
-            if self.is_localized and not self.manual_format:
-                format = force_text(formats.get_format(self.format_key)[0])
-        else:
-            # For django >= 1.7
-            format = format or formats.get_format(self.format_key)[0]
 
-        return format
+    def get_format(self):
+        return self.format or formats.get_format(self.format_key)[0]
 
     def gett_attrs(self, attrs, format):
         if not attrs:
             attrs = {}
 
-        attrs['data-inputmask'] = "'mask': '{mask}'".format(
+        attrs['data-inputmask'] = u"'mask': '{mask}'".format(
             mask=datetime_format_to_js_input_mask(format))
 
         return attrs
@@ -165,25 +164,25 @@ class TimePickerInput(DateTimeWidgetMixin, forms.TimeInput):
     """
     format_key = 'TIME_INPUT_FORMATS'
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         format = self.get_format()
         input = super(TimePickerInput, self).render(
             name, value, self.gett_attrs(attrs, format))
 
-        attrs = {'data-oscarWidget': 'time',
-                 'data-timeFormat':
-                 datetime_format_to_js_time_format(format),
-                 }
+        attrs = {
+            'data-oscarWidget': 'time',
+            'data-timeFormat': datetime_format_to_js_time_format(format),
+        }
 
-        div = format_html('<div class="input-group date"{}>', flatatt(attrs))
-        return mark_safe('<div class="form-inline">'
-                         ' {div}'
-                         '  {input}'
-                         '  <span class="input-group-addon">'
-                         '   <i class="icon-time glyphicon-time"></i>'
-                         '  </span>'
-                         ' </div>'
-                         '</div>'
+        div = format_html(u'<div class="input-group date"{}>', flatatt(attrs))
+        return mark_safe(u'<div class="form-inline">'
+                         u' {div}'
+                         u'  {input}'
+                         u'  <span class="input-group-addon">'
+                         u'   <i class="icon-time glyphicon-time"></i>'
+                         u'  </span>'
+                         u' </div>'
+                         u'</div>'
                          .format(div=div, input=input))
 
 
@@ -194,25 +193,25 @@ class DatePickerInput(DateTimeWidgetMixin, forms.DateInput):
     """
     format_key = 'DATE_INPUT_FORMATS'
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         format = self.get_format()
         input = super(DatePickerInput, self).render(
             name, value, self.gett_attrs(attrs, format))
 
-        attrs = {'data-oscarWidget': 'date',
-                 'data-dateFormat':
-                 datetime_format_to_js_date_format(format),
-                 }
+        attrs = {
+            'data-oscarWidget': 'date',
+            'data-dateFormat': datetime_format_to_js_date_format(format),
+        }
 
-        div = format_html('<div class="input-group date"{}>', flatatt(attrs))
-        return mark_safe('<div class="form-inline">'
-                         ' {div}'
-                         '  {input}'
-                         '  <span class="input-group-addon">'
-                         '   <i class="icon-calendar glyphicon-calendar"></i>'
-                         '  </span>'
-                         ' </div>'
-                         '</div>'
+        div = format_html(u'<div class="input-group date"{}>', flatatt(attrs))
+        return mark_safe(u'<div class="form-inline">'
+                         u' {div}'
+                         u'  {input}'
+                         u'  <span class="input-group-addon">'
+                         u'   <i class="icon-calendar glyphicon-calendar"></i>'
+                         u'  </span>'
+                         u' </div>'
+                         u'</div>'
                          .format(div=div, input=input))
 
 
@@ -237,25 +236,25 @@ class DateTimePickerInput(DateTimeWidgetMixin, forms.DateTimeInput):
         if not include_seconds and self.format:
             self.format = re.sub(':?%S', '', self.format)
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         format = self.get_format()
         input = super(DateTimePickerInput, self).render(
             name, value, self.gett_attrs(attrs, format))
 
-        attrs = {'data-oscarWidget': 'datetime',
-                 'data-datetimeFormat':
-                 datetime_format_to_js_datetime_format(format),
-                 }
+        attrs = {
+            'data-oscarWidget': 'datetime',
+            'data-datetimeFormat': datetime_format_to_js_datetime_format(format),
+        }
 
-        div = format_html('<div class="input-group date"{}>', flatatt(attrs))
-        return mark_safe('<div class="form-inline">'
-                         ' {div}'
-                         '  {input}'
-                         '  <span class="input-group-addon">'
-                         '   <i class="icon-calendar glyphicon-calendar"></i>'
-                         '  </span>'
-                         ' </div>'
-                         '</div>'
+        div = format_html(u'<div class="input-group date"{}>', flatatt(attrs))
+        return mark_safe(u'<div class="form-inline">'
+                         u' {div}'
+                         u'  {input}'
+                         u'  <span class="input-group-addon">'
+                         u'   <i class="icon-calendar glyphicon-calendar"></i>'
+                         u'  </span>'
+                         u' </div>'
+                         u'</div>'
                          .format(div=div, input=input))
 
 
@@ -318,6 +317,7 @@ class AdvancedSelect(forms.Select):
         super(AdvancedSelect, self).__init__(attrs, choices, **kwargs)
 
     def render_option(self, selected_choices, option_value, option_label):
+        # TODO remove this when Django 1.8 support is dropped
         option_value = force_text(option_value)
         # In the next version, remove checking the option_value against self.disabled_values
         # and just rely on looking at the disabled attribute
@@ -338,6 +338,12 @@ class AdvancedSelect(forms.Select):
                            selected_html,
                            flatatt(option_attrs),
                            force_text(option_label))
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super(AdvancedSelect, self).create_option(name, value, label, selected, index, subindex, attrs)
+        if force_text(value) in self.disabled_values:
+            option['attrs']['disabled'] = True
+        return option
 
 
 class AdvancedSelectMultiple(AdvancedSelect, forms.SelectMultiple):
@@ -424,6 +430,7 @@ class RemoteSelect(forms.Widget):
     """
     is_multiple = False
     lookup_url = None
+    template_name = None
 
     def __init__(self, *args, **kwargs):
         if 'lookup_url' in kwargs:
@@ -443,8 +450,9 @@ class RemoteSelect(forms.Widget):
         else:
             return six.text_type(value)
 
-    def render(self, name, value, attrs=None, choices=()):
-        attrs = self.build_attrs(attrs, **{
+    def render(self, name, value, attrs=None, renderer=None):
+        attrs = {} if attrs is None else copy.copy(attrs)
+        attrs.update({
             'type': 'hidden',
             'name': name,
             'data-ajax-url': self.lookup_url,

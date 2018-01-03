@@ -31,7 +31,12 @@ If a non-staff user with the ``partner.dashboard_access`` permission is in
   record's partner's ``users``.
 * Delete and list products. Limited to products the user is allowed to update.
 * Managing orders. Similar to products, a user get access if one of an order's
-  lines is associated with a matching partner.
+  lines is associated with a matching partner. By default, user will get
+  access to all lines of the order, even though supplies only one of them.
+  If you need user to see only own lines or apply additional filtering - you
+  can customize
+  :meth:`~oscar.apps.dashboard.order.views.OrderDetailView.get_order_lines`
+  method.
 
 For many marketplace scenarios, it will make sense to ensure at checkout that
 a basket only contains lines from one partner.
@@ -44,7 +49,7 @@ including `Django's default permissions`_.
   products. Supporting this requires a modelling change. If you require this,
   please get in touch so we can first learn about your use case.
 
-.. _Django's default permissions: https://docs.djangoproject.com/en/dev/topics/auth/default/#default-permissions
+.. _Django's default permissions: https://docs.djangoproject.com/en/stable/topics/auth/default/#default-permissions
 
 
 Abstract models
@@ -57,4 +62,3 @@ Views
 
 .. automodule:: oscar.apps.dashboard.views
     :members:
-

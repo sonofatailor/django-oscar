@@ -1,0 +1,91 @@
+=======================
+Oscar 1.6 release notes
+=======================
+
+:release: tbd
+
+Welcome to Oscar 1.6
+
+
+Table of contents:
+
+.. contents::
+    :local:
+    :depth: 1
+
+
+.. _compatibility_of_1.6:
+
+Compatibility
+-------------
+
+Oscar 1.6 is compatible with Django 1.8, 1.10 and 1.11 as well as Python 2.7,
+3.3, 3.4, 3.5 and 3.6. Support for Django 1.9 is no longer officialy supported
+since it is longer supported by Django (end of life).
+
+
+.. _new_in_1.6:
+
+What's new in Oscar 1.6?
+------------------------
+
+
+Removal of deprecated features
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ - Removed ``OSCAR_PROMOTION_MERCHANDISING_BLOCK_TYPES`` setting since
+   merchandising block promotions, which used it, already removed for a while.
+
+Minor changes
+~~~~~~~~~~~~~
+ - Majority of the Oscar imports now using dynamic loading, instead of
+   direct importing for better extensibility and customizability, except
+   signals.
+ - Customer transaction emails reworked on top of mailgun layout and has
+   better look.
+ - ``SearchHandler.get_search_form`` method now accepts additional
+   keyword arguments, which will be passed on search form class instance
+   initiation.
+ - Added ``get_stock_info`` hook to ``oscar.apps.basket.models.Basket``  for
+   implementing strategies that depend on product options.
+
+.. _incompatible_in_1.6:
+
+Backwards incompatible changes in Oscar 1.6
+-------------------------------------------
+
+ - ``oscar.apps.customer.auth_backends.EmailBackend`` now rejects inactive users
+   (where ``User.is_active`` is ``False``).
+
+ - ``oscar.apps.offer.models.ConditionalOffer`` now has a new flag
+   ``exclusive`` to denote that the offer involved can not be combined on the
+   same item on the same basket line with another offer.
+   This flag is used by ``oscar.apps.basket.utils.LineOfferConsumer``, a facade
+   that supercedes the old ``oscar.apps.basket.models.Line._affected_items`` counter,
+   and replaces it with a more finegrained approach. This makes it possible to apply
+   two distinct non-exclusive offers on the same basketline items, for example
+   multiple distinct vouchers.
+   A couple of methods on the basketline model have been extended with an
+   optional ``offer`` argument, i.e. ``discount`` and ``consume``, so if you
+   are using a customized basketline model, you have to update your methods'
+   signatures.
+
+ - Invalid URL names supplied to the ``OSCAR_DASHBOARD_NAVIGATION`` setting
+   are now logged as an exception (previously they were silently ignored).
+   The offending menu item will be skipped during menu rendering.
+   In Oscar 1.8 the exception will be raised without being intercepted.
+
+ - All signals are now loaded directly.
+
+Dependency changes
+------------------
+
+
+.. _deprecated_features_in_1.6:
+
+Deprecated features
+~~~~~~~~~~~~~~~~~~~
+
+The following features have been deprecated in this release:
+
+* ``StockRecord.price_excl_tax`` will be renamed into ``StockRecord.price`` in
+  Oscar 2.0. Please see :issue:`1962` for more details.

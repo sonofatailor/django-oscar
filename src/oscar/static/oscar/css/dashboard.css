@@ -3406,6 +3406,9 @@ select[multiple].input-group-sm > .input-group-btn > .btn {
 .navbar-form .select2-container.form-control {
   display: inline-block;
 }
+.navbar-form .form-group .form-inline {
+  display: inline-block;
+}
 .navbar-form .help-block:first-child,
 .navbar-form .error-block:first-child {
   display: none;
@@ -3415,6 +3418,9 @@ select[multiple].input-group-sm > .input-group-btn > .btn {
 }
 .navbar-form .control-group {
   margin-right: 10px;
+}
+.navbar-form .product-select {
+  width: 270px;
 }
 .navbar-form .help-block,
 .navbar-form .error-block {
@@ -5641,6 +5647,9 @@ form.flat {
 .form-inline .select2-container.form-control {
   display: inline-block;
 }
+.form-inline .form-group .form-inline {
+  display: inline-block;
+}
 .form-inline {
   margin-bottom: 0;
 }
@@ -5653,6 +5662,9 @@ form.flat {
 }
 .form-inline .control-group {
   margin-right: 10px;
+}
+.form-inline .product-select {
+  width: 270px;
 }
 .create-page .form-horizontal input[type=text],
 .create-page .form-stacked input[type=text],
@@ -5850,6 +5862,14 @@ caption .btn-toolbar,
 caption > i,
 .table-header > i {
   padding-right: 10px;
+}
+body.dashboard-login {
+  padding-top: 60px;
+  background-image: none;
+  background-color: #f5f5f5;
+}
+body.dashboard-login h1 {
+  text-align: center;
 }
 #order_graph {
   position: relative;
@@ -6122,6 +6142,18 @@ caption > i,
 }
 .search-filter-list .label {
   font-size: 100%;
+}
+body.dragging,
+body.dragging * {
+  cursor: move !important;
+}
+.draggable {
+  background-color: #FFF49F;
+}
+.dragged {
+  position: absolute;
+  opacity: 0.5;
+  z-index: 2000;
 }
 /*!
  *  Font Awesome 3.2.1
@@ -8807,3 +8839,5 @@ a .icon-flip-vertical:before {
 .icon-renren {
   *zoom: expression( this.runtimeStyle['zoom'] = '1', this.innerHTML = '&#xf18b;');
 }
+
+/*# sourceMappingURL=dashboard.css.map */

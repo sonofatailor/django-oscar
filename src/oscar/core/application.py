@@ -1,3 +1,6 @@
+from django import VERSION as DJANGO_VERSION
+from django.core.urlresolvers import RegexURLPattern, reverse_lazy
+
 from oscar.core.loading import feature_hidden
 from oscar.views.decorators import permissions_required
 
@@ -9,8 +12,10 @@ class Application(object):
     This is subclassed by each app to provide a customisable container for an
     app's views and permissions.
     """
-    #: Namespace name
+    #: Application name
     name = None
+
+    login_url = None
 
     #: A name that allows the functionality within this app to be disabled
     hidable_feature_name = None
@@ -27,7 +32,11 @@ class Application(object):
     default_permissions = None
 
     def __init__(self, app_name=None, **kwargs):
-        self.app_name = app_name
+        """
+        kwargs:
+            app_name: optionally specify the instance namespace
+        """
+        self.app_name = app_name or self.name
         # Set all kwargs as object attributes
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -60,13 +69,28 @@ class Application(object):
         for pattern in urlpatterns:
             if hasattr(pattern, 'url_patterns'):
                 self.post_process_urls(pattern.url_patterns)
-            if not hasattr(pattern, '_callback'):
-                continue
-            # Look for a custom decorator
-            decorator = self.get_url_decorator(pattern)
-            if decorator:
-                # Nasty way of modifying a RegexURLPattern
-                pattern._callback = decorator(pattern._callback)
+
+            # In Django 1.8 and 1.9 we could distinguish the RegexURLPattern
+            # by simply checking if the pattern has a `_callback` attribute.
+            # In 1.10 this attribute is now only available as `callback`.
+            # Since the `callback` attribute is also available on patterns we
+            # should not modify (`RegexURLResolver`) we just do a isinstance()
+            # check here.
+            if DJANGO_VERSION < (1, 10):
+                if not hasattr(pattern, '_callback'):
+                    continue
+                # Look for a custom decorator
+                decorator = self.get_url_decorator(pattern)
+                if decorator:
+                    # Nasty way of modifying a RegexURLPattern
+                    pattern._callback = decorator(pattern._callback)
+            else:
+                if isinstance(pattern, RegexURLPattern):
+                    # Look for a custom decorator
+                    decorator = self.get_url_decorator(pattern)
+                    if decorator:
+                        pattern.callback = decorator(pattern.callback)
+
         return urlpatterns
 
     def get_permissions(self, url):
@@ -101,9 +125,13 @@ class Application(object):
         """
         permissions = self.get_permissions(pattern.name)
         if permissions:
-            return permissions_required(permissions)
+            return permissions_required(permissions, login_url=self.login_url)
 
     @property
     def urls(self):
         # We set the application and instance namespace here
-        return self.get_urls(), self.app_name, self.name
+        return self.get_urls(), self.name, self.app_name
+
+
+class DashboardApplication(Application):
+    login_url = reverse_lazy('dashboard:login')

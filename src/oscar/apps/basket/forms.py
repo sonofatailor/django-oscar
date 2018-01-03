@@ -1,7 +1,6 @@
 from django import forms
 from django.conf import settings
 from django.db.models import Sum
-from django.forms.models import BaseModelFormSet, modelformset_factory
 from django.utils.translation import ugettext_lazy as _
 
 from oscar.core.loading import get_class, get_model
@@ -29,7 +28,13 @@ class BasketLineForm(forms.ModelForm):
         return qty
 
     def check_max_allowed_quantity(self, qty):
-        is_allowed, reason = self.instance.basket.is_quantity_allowed(qty)
+        # Since `Basket.is_quantity_allowed` checks quantity of added product
+        # against total number of the products in the basket, instead of sending
+        # updated quantity of the product, we send difference between current
+        # number and updated. Thus, product already in the basket and we don't
+        # add second time, just updating number of items.
+        qty_delta = qty - self.instance.quantity
+        is_allowed, reason = self.instance.basket.is_quantity_allowed(qty_delta)
         if not is_allowed:
             raise forms.ValidationError(reason)
 
@@ -43,32 +48,6 @@ class BasketLineForm(forms.ModelForm):
     class Meta:
         model = Line
         fields = ['quantity']
-
-
-class BaseBasketLineFormSet(BaseModelFormSet):
-
-    def __init__(self, strategy, *args, **kwargs):
-        self.strategy = strategy
-        super(BaseBasketLineFormSet, self).__init__(*args, **kwargs)
-
-    def _construct_form(self, i, **kwargs):
-        return super(BaseBasketLineFormSet, self)._construct_form(
-            i, strategy=self.strategy, **kwargs)
-
-    def _should_delete_form(self, form):
-        """
-        Quantity of zero is treated as if the user checked the DELETE checkbox,
-        which results in the basket line being deleted
-        """
-        if super(BaseBasketLineFormSet, self)._should_delete_form(form):
-            return True
-        if self.can_delete and 'quantity' in form.cleaned_data:
-            return form.cleaned_data['quantity'] == 0
-
-
-BasketLineFormSet = modelformset_factory(
-    Line, form=BasketLineForm, formset=BaseBasketLineFormSet, extra=0,
-    can_delete=True)
 
 
 class SavedLineForm(forms.ModelForm):
@@ -102,23 +81,6 @@ class SavedLineForm(forms.ModelForm):
         if not is_available:
             raise forms.ValidationError(reason)
         return cleaned_data
-
-
-class BaseSavedLineFormSet(BaseModelFormSet):
-
-    def __init__(self, strategy, basket, *args, **kwargs):
-        self.strategy = strategy
-        self.basket = basket
-        super(BaseSavedLineFormSet, self).__init__(*args, **kwargs)
-
-    def _construct_form(self, i, **kwargs):
-        return super(BaseSavedLineFormSet, self)._construct_form(
-            i, strategy=self.strategy, basket=self.basket, **kwargs)
-
-
-SavedLineFormSet = modelformset_factory(Line, form=SavedLineForm,
-                                        formset=BaseSavedLineFormSet, extra=0,
-                                        can_delete=True)
 
 
 class BasketVoucherForm(forms.Form):
@@ -194,8 +156,8 @@ class AddToBasketForm(forms.Form):
         This is designed to be overridden so that specific widgets can be used
         for certain types of options.
         """
-        kwargs = {'required': option.is_required}
-        self.fields[option.code] = forms.CharField(**kwargs)
+        self.fields[option.code] = forms.CharField(
+            label=option.name, required=option.is_required)
 
     def clean_quantity(self):
         # Check that the proposed new line quantity is sensible
@@ -266,6 +228,13 @@ class SimpleAddToBasketForm(AddToBasketForm):
     """
     Simplified version of the add to basket form where the quantity is
     defaulted to 1 and rendered in a hidden widget
+
+    Most of the time, you won't need to override this class. Just change
+    AddToBasketForm to change behaviour in both forms at once.
     """
-    quantity = forms.IntegerField(
-        initial=1, min_value=1, widget=forms.HiddenInput, label=_('Quantity'))
+
+    def __init__(self, *args, **kwargs):
+        super(SimpleAddToBasketForm, self).__init__(*args, **kwargs)
+        if 'quantity' in self.fields:
+            self.fields['quantity'].initial = 1
+            self.fields['quantity'].widget = forms.HiddenInput()

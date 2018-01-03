@@ -37,7 +37,7 @@ def subfolders(path):
 
 
 def inherit_app_config(local_app_path, app_package, app_label):
-    if 'dashboard' in app_label:
+    if 'dashboard' in app_label and app_label != 'dashboard':
         config_name = '%sDashboardConfig' % app_label.split('.').pop().title()
     elif app_label == 'catalogue.reviews':
         # This embedded app needs special handling
@@ -102,7 +102,7 @@ def fork_app(label, folder_path, logger=None):
         logger.info("Creating models.py")
         create_file(
             join(local_app_path, 'models.py'),
-            "from oscar.apps.%s.models import *  # noqa\n" % label)
+            "from oscar.apps.%s.models import *  # noqa isort:skip\n" % label)
 
         migrations_path = 'migrations'
         source = join(oscar_app_path, migrations_path)

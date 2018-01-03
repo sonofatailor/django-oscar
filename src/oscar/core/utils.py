@@ -6,10 +6,10 @@ import logging
 from django.conf import settings
 from django.shortcuts import redirect, resolve_url
 from django.template.defaultfilters import date as date_filter
-from django.template.defaultfilters import slugify as django_slugify
 from django.utils import six
 from django.utils.http import is_safe_url
 from django.utils.module_loading import import_string
+from django.utils.text import slugify as django_slugify
 from django.utils.timezone import get_current_timezone, is_naive, make_aware
 from unidecode import unidecode
 
@@ -18,8 +18,13 @@ def default_slugifier(value):
     """
     Oscar's default slugifier function.
     Uses Django's slugify function, but first applies unidecode() to convert
-    non-ASCII strings to ASCII equivalents where possible.
+    non-ASCII strings to ASCII equivalents where possible, if it was not
+    allowed to use unicode in slugs. To keep backwards compatibility with
+    Django<1.9, we pass `allow_unicode` only if case it was enabled in
+    settings.
     """
+    if settings.OSCAR_SLUG_ALLOW_UNICODE:
+        return django_slugify(value, allow_unicode=True)
     return django_slugify(value)
 
 
@@ -39,32 +44,17 @@ def slugify(value):
         slugifier = import_string(slugifier)
 
     # Use unidecode to convert non-ASCII strings to ASCII equivalents where
-    # possible.
-    value = slugifier(unidecode(six.text_type(value)))
+    # possible if unicode is not allowed to contain in slug.
+    if not settings.OSCAR_SLUG_ALLOW_UNICODE:
+        value = unidecode(six.text_type(value))
 
+    value = slugifier(six.text_type(value))
     # Remove stopwords
     for word in settings.OSCAR_SLUG_BLACKLIST:
         value = value.replace(word + '-', '')
         value = value.replace('-' + word, '')
 
     return value
-
-
-def compose(*functions):
-    """
-    Compose functions
-
-    This is useful for combining decorators.
-    """
-    def _composed(*args):
-        for fn in functions:
-            try:
-                args = fn(*args)
-            except TypeError:
-                # args must be scalar so we don't try to expand it
-                args = fn(args)
-        return args
-    return _composed
 
 
 def format_datetime(dt, format=None):

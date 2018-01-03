@@ -10,7 +10,7 @@ from django.utils.http import urlquote
 from django.utils.translation import ugettext as _
 from django.views import generic
 
-from oscar.apps.shipping.methods import NoShippingRequired
+from oscar.core.compat import user_is_authenticated
 from oscar.core.loading import get_class, get_classes, get_model
 
 from . import signals
@@ -28,6 +28,7 @@ RedirectRequired, UnableToTakePayment, PaymentError \
 UnableToPlaceOrder = get_class('order.exceptions', 'UnableToPlaceOrder')
 OrderPlacementMixin = get_class('checkout.mixins', 'OrderPlacementMixin')
 CheckoutSessionMixin = get_class('checkout.session', 'CheckoutSessionMixin')
+NoShippingRequired = get_class('shipping.methods', 'NoShippingRequired')
 Order = get_model('order', 'Order')
 ShippingAddress = get_model('order', 'ShippingAddress')
 CommunicationEvent = get_model('order', 'CommunicationEvent')
@@ -58,7 +59,7 @@ class IndexView(CheckoutSessionMixin, generic.FormView):
     def get(self, request, *args, **kwargs):
         # We redirect immediately to shipping address stage if the user is
         # signed in.
-        if request.user.is_authenticated():
+        if user_is_authenticated(request.user):
             # We raise a signal to indicate that the user has entered the
             # checkout process so analytics tools can track this event.
             signals.start_checkout.send_robust(
@@ -154,7 +155,7 @@ class ShippingAddressView(CheckoutSessionMixin, generic.FormView):
 
     def get_context_data(self, **kwargs):
         ctx = super(ShippingAddressView, self).get_context_data(**kwargs)
-        if self.request.user.is_authenticated():
+        if user_is_authenticated(self.request.user):
             # Look up address book data
             ctx['addresses'] = self.get_available_addresses()
         return ctx
@@ -170,7 +171,7 @@ class ShippingAddressView(CheckoutSessionMixin, generic.FormView):
     def post(self, request, *args, **kwargs):
         # Check if a shipping address was selected directly (eg no form was
         # filled in)
-        if self.request.user.is_authenticated() \
+        if user_is_authenticated(self.request.user) \
                 and 'address_id' in self.request.POST:
             address = UserAddress._default_manager.get(
                 pk=self.request.POST['address_id'], user=self.request.user)
@@ -507,7 +508,7 @@ class PaymentDetailsView(OrderPlacementMixin, generic.TemplateView):
         Note, this isn't used in core oscar as there is no billing address form
         by default.
         """
-        if not self.request.user.is_authenticated():
+        if not user_is_authenticated(self.request.user):
             return None
         try:
             return self.request.user.addresses.get(is_default_for_billing=True)
@@ -676,3 +677,16 @@ class ThankYouView(generic.DetailView):
                 raise http.Http404(_("No order found"))
 
         return order
+
+    def get_context_data(self, *args, **kwargs):
+        ctx = super(ThankYouView, self).get_context_data(*args, **kwargs)
+        # Remember whether this view has been loaded.
+        # Only send tracking information on the first load.
+        key = 'order_{}_thankyou_viewed'.format(ctx['order'].pk)
+        if not self.request.session.get(key, False):
+            self.request.session[key] = True
+            ctx['send_analytics_event'] = True
+        else:
+            ctx['send_analytics_event'] = False
+
+        return ctx

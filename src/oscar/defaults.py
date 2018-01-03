@@ -52,14 +52,6 @@ OSCAR_DASHBOARD_ITEMS_PER_PAGE = 20
 OSCAR_ALLOW_ANON_CHECKOUT = False
 
 # Promotions
-COUNTDOWN, LIST, SINGLE_PRODUCT, TABBED_BLOCK = (
-    'Countdown', 'List', 'SingleProduct', 'TabbedBlock')
-OSCAR_PROMOTION_MERCHANDISING_BLOCK_TYPES = (
-    (COUNTDOWN, "Vertical list"),
-    (LIST, "Horizontal list"),
-    (TABBED_BLOCK, "Tabbed block"),
-    (SINGLE_PRODUCT, "Single product"),
-)
 OSCAR_PROMOTION_POSITIONS = (('page', 'Page'),
                              ('right', 'Right-hand sidebar'),
                              ('left', 'Left-hand sidebar'))
@@ -87,6 +79,7 @@ OSCAR_FROM_EMAIL = 'oscar@example.com'
 OSCAR_SLUG_FUNCTION = 'oscar.core.utils.default_slugifier'
 OSCAR_SLUG_MAP = {}
 OSCAR_SLUG_BLACKLIST = []
+OSCAR_SLUG_ALLOW_UNICODE = False
 
 # Cookies
 OSCAR_COOKIES_DELETE_ON_LOGOUT = ['oscar_recently_viewed_products', ]
@@ -223,7 +216,10 @@ OSCAR_SEARCH_FACETS = {
         ('product_class', {'name': _('Type'), 'field': 'product_class'}),
         ('rating', {'name': _('Rating'), 'field': 'rating'}),
         # You can specify an 'options' element that will be passed to the
-        # SearchQuerySet.facet() call.  It's hard to get 'missing' to work
+        # SearchQuerySet.facet() call.
+        # For instance, with Elasticsearch backend, 'options': {'order': 'term'}
+        # will sort items in a facet by title instead of number of items.
+        # It's hard to get 'missing' to work
         # correctly though as of Solr's hilarious syntax for selecting
         # items without a specific facet:
         # http://wiki.apache.org/solr/SimpleFacetParameters#facet.method
@@ -246,6 +242,8 @@ OSCAR_SEARCH_FACETS = {
     ]),
 }
 
+
+OSCAR_PROMOTIONS_ENABLED = True
 OSCAR_PRODUCT_SEARCH_HANDLER = None
 
 OSCAR_SETTINGS = dict(

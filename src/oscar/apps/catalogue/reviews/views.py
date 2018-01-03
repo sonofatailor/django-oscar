@@ -11,6 +11,7 @@ from oscar.core.utils import redirect_to_referrer
 ProductReviewForm, VoteForm, SortReviewsForm = get_classes(
     'catalogue.reviews.forms',
     ['ProductReviewForm', 'VoteForm', 'SortReviewsForm'])
+
 Vote = get_model('reviews', 'vote')
 ProductReview = get_model('reviews', 'ProductReview')
 Product = get_model('catalogue', 'product')
@@ -113,7 +114,7 @@ class ProductReviewList(ListView):
     paginate_by = settings.OSCAR_REVIEWS_PER_PAGE
 
     def get_queryset(self):
-        qs = self.model.approved.filter(product=self.kwargs['product_pk'])
+        qs = self.model.objects.approved().filter(product=self.kwargs['product_pk'])
         self.form = SortReviewsForm(self.request.GET)
         if self.form.is_valid():
             sort_by = self.form.cleaned_data['sort_by']

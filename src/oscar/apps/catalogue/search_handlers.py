@@ -2,7 +2,6 @@ from django.conf import settings
 from django.utils.module_loading import import_string
 from django.views.generic.list import MultipleObjectMixin
 
-from oscar.core.decorators import deprecated
 from oscar.core.loading import get_class, get_model
 
 BrowseCategoryForm = get_class('search.forms', 'BrowseCategoryForm')
@@ -23,7 +22,7 @@ def get_product_search_handler_class():
     if settings.OSCAR_PRODUCT_SEARCH_HANDLER is not None:
         return import_string(settings.OSCAR_PRODUCT_SEARCH_HANDLER)
     if is_solr_supported():
-        return get_class('catalogue.search_handlers', 'ProductSearchHandler')
+        return get_class('catalogue.search_handlers', 'SolrProductSearchHandler')
     elif is_elasticsearch_supported():
         return get_class(
             'catalogue.search_handlers', 'ESProductSearchHandler',
@@ -52,13 +51,9 @@ class SolrProductSearchHandler(SearchHandler):
             # We use 'narrow' API to ensure Solr's 'fq' filtering is used as
             # opposed to filtering using 'q'.
             pattern = ' OR '.join([
-                '"%s"' % c.full_name for c in self.categories])
+                '"%s"' % sqs.query.clean(c.full_name) for c in self.categories])
             sqs = sqs.narrow('category_exact:(%s)' % pattern)
         return sqs
-
-
-# Deprecated name. TODO: Remove in Oscar 1.2
-ProductSearchHandler = deprecated(SolrProductSearchHandler)
 
 
 class ESProductSearchHandler(SearchHandler):

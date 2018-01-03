@@ -1,12 +1,12 @@
+from django import VERSION as DJANGO_VERSION
 from django import forms
 from django.core import exceptions
-from django.forms.models import inlineformset_factory
 from django.utils.translation import ugettext_lazy as _
 from treebeard.forms import movenodeform_factory
 
 from oscar.core.loading import get_class, get_model
 from oscar.core.utils import slugify
-from oscar.forms.widgets import ImageInput
+from oscar.forms.widgets import DateTimePickerInput, ImageInput
 
 Product = get_model('catalogue', 'Product')
 ProductClass = get_model('catalogue', 'ProductClass')
@@ -18,7 +18,11 @@ ProductImage = get_model('catalogue', 'ProductImage')
 ProductRecommendation = get_model('catalogue', 'ProductRecommendation')
 ProductImageMultipleChoiceField = get_class('dashboard.catalogue.fields',
                                             'ProductImageMultipleChoiceField')
+AttributeOptionGroup = get_model('catalogue', 'AttributeOptionGroup')
+AttributeOption = get_model('catalogue', 'AttributeOption')
 ProductSelect = get_class('dashboard.catalogue.widgets', 'ProductSelect')
+RelatedFieldWidgetWrapper = get_class('dashboard.widgets',
+                                      'RelatedFieldWidgetWrapper')
 
 CategoryForm = movenodeform_factory(
     Category,
@@ -88,73 +92,6 @@ class StockRecordForm(forms.ModelForm):
         ]
 
 
-BaseStockRecordFormSet = inlineformset_factory(
-    Product, StockRecord, form=StockRecordForm, extra=1)
-
-
-class StockRecordFormSet(BaseStockRecordFormSet):
-
-    def __init__(self, product_class, user, *args, **kwargs):
-        self.user = user
-        self.require_user_stockrecord = not user.is_staff
-        self.product_class = product_class
-
-        if not user.is_staff and \
-           'instance' in kwargs and \
-           'queryset' not in kwargs:
-            kwargs.update({
-                'queryset': StockRecord.objects.filter(product=kwargs['instance'],
-                                                       partner__in=user.partners.all())
-            })
-
-        super(StockRecordFormSet, self).__init__(*args, **kwargs)
-        self.set_initial_data()
-
-    def set_initial_data(self):
-        """
-        If user has only one partner associated, set the first
-        stock record's partner to it. Can't pre-select for staff users as
-        they're allowed to save a product without a stock record.
-
-        This is intentionally done after calling __init__ as passing initial
-        data to __init__ creates a form for each list item. So depending on
-        whether we can pre-select the partner or not, we'd end up with 1 or 2
-        forms for an unbound form.
-        """
-        if self.require_user_stockrecord:
-            try:
-                user_partner = self.user.partners.get()
-            except (exceptions.ObjectDoesNotExist,
-                    exceptions.MultipleObjectsReturned):
-                pass
-            else:
-                partner_field = self.forms[0].fields.get('partner', None)
-                if partner_field and partner_field.initial is None:
-                    partner_field.initial = user_partner
-
-    def _construct_form(self, i, **kwargs):
-        kwargs['product_class'] = self.product_class
-        kwargs['user'] = self.user
-        return super(StockRecordFormSet, self)._construct_form(
-            i, **kwargs)
-
-    def clean(self):
-        """
-        If the user isn't a staff user, this validation ensures that at least
-        one stock record's partner is associated with a users partners.
-        """
-        if any(self.errors):
-            return
-        if self.require_user_stockrecord:
-            stockrecord_partners = set([form.cleaned_data.get('partner', None)
-                                        for form in self.forms])
-            user_partners = set(self.user.partners.all())
-            if not user_partners & stockrecord_partners:
-                raise exceptions.ValidationError(
-                    _("At least one stock record must be set to a partner that"
-                      " you're associated with."))
-
-
 def _attr_text_field(attribute):
     return forms.CharField(label=attribute.name,
                            required=attribute.required)
@@ -185,6 +122,12 @@ def _attr_date_field(attribute):
     return forms.DateField(label=attribute.name,
                            required=attribute.required,
                            widget=forms.widgets.DateInput)
+
+
+def _attr_datetime_field(attribute):
+    return forms.DateTimeField(label=attribute.name,
+                               required=attribute.required,
+                               widget=DateTimePickerInput())
 
 
 def _attr_option_field(attribute):
@@ -232,6 +175,7 @@ class ProductForm(forms.ModelForm):
         "boolean": _attr_boolean_field,
         "float": _attr_float_field,
         "date": _attr_date_field,
+        "datetime": _attr_datetime_field,
         "option": _attr_option_field,
         "multi_option": _attr_multi_option_field,
         "entity": _attr_entity_field,
@@ -347,8 +291,8 @@ class ProductForm(forms.ModelForm):
         Set attributes before ModelForm calls the product's clean method
         (which it does in _post_clean), which in turn validates attributes.
         """
-        product_class = self.instance.get_product_class()
-        for attribute in product_class.attributes.all():
+        self.instance.attr.initiate_attributes()
+        for attribute in self.instance.attr.get_all_attributes():
             field_name = 'attr_%s' % attribute.code
             # An empty text field won't show up in cleaned_data.
             if field_name in self.cleaned_data:
@@ -366,37 +310,6 @@ class ProductCategoryForm(forms.ModelForm):
     class Meta:
         model = ProductCategory
         fields = ('category', )
-
-
-BaseProductCategoryFormSet = inlineformset_factory(
-    Product, ProductCategory, form=ProductCategoryForm, extra=1,
-    can_delete=True)
-
-
-class ProductCategoryFormSet(BaseProductCategoryFormSet):
-
-    def __init__(self, product_class, user, *args, **kwargs):
-        # This function just exists to drop the extra arguments
-        super(ProductCategoryFormSet, self).__init__(*args, **kwargs)
-
-    def clean(self):
-        if not self.instance.is_child and self.get_num_categories() == 0:
-            raise forms.ValidationError(
-                _("Stand-alone and parent products "
-                  "must have at least one category"))
-        if self.instance.is_child and self.get_num_categories() > 0:
-            raise forms.ValidationError(
-                _("A child product should not have categories"))
-
-    def get_num_categories(self):
-        num_categories = 0
-        for i in range(0, self.total_form_count()):
-            form = self.forms[i]
-            if (hasattr(form, 'cleaned_data')
-                    and form.cleaned_data.get('category', None)
-                    and not form.cleaned_data.get('DELETE', False)):
-                num_categories += 1
-        return num_categories
 
 
 class ProductImageForm(forms.ModelForm):
@@ -424,16 +337,6 @@ class ProductImageForm(forms.ModelForm):
         return self.prefix.split('-').pop()
 
 
-BaseProductImageFormSet = inlineformset_factory(
-    Product, ProductImage, form=ProductImageForm, extra=2)
-
-
-class ProductImageFormSet(BaseProductImageFormSet):
-
-    def __init__(self, product_class, user, *args, **kwargs):
-        super(ProductImageFormSet, self).__init__(*args, **kwargs)
-
-
 class ProductRecommendationForm(forms.ModelForm):
 
     class Meta:
@@ -442,21 +345,6 @@ class ProductRecommendationForm(forms.ModelForm):
         widgets = {
             'recommendation': ProductSelect,
         }
-
-    def __init__(self, *args, **kwargs):
-        super(ProductRecommendationForm, self).__init__(*args, **kwargs)
-        self.fields['recommendation'].widget.attrs['class'] = "select2"
-
-
-BaseProductRecommendationFormSet = inlineformset_factory(
-    Product, ProductRecommendation, form=ProductRecommendationForm,
-    extra=5, fk_name="primary")
-
-
-class ProductRecommendationFormSet(BaseProductRecommendationFormSet):
-
-    def __init__(self, product_class, user, *args, **kwargs):
-        super(ProductRecommendationFormSet, self).__init__(*args, **kwargs)
 
 
 class ProductClassForm(forms.ModelForm):
@@ -476,6 +364,14 @@ class ProductAttributesForm(forms.ModelForm):
         self.fields["code"].required = False
 
         self.fields["option_group"].help_text = _("Select an option group")
+        # The "Field.rel" attribute was renamed to "remote_field" in Django 1.9
+        # Documentation URL: <https://docs.djangoproject.com/en/1.11/releases/1.9/#field-rel-changes>
+        if DJANGO_VERSION < (1, 9):
+            remote_field = self._meta.model._meta.get_field('option_group').rel
+        else:
+            remote_field = self._meta.model._meta.get_field('option_group').remote_field
+        self.fields["option_group"].widget = RelatedFieldWidgetWrapper(
+            self.fields["option_group"].widget, remote_field)
 
     def clean_code(self):
         code = self.cleaned_data.get("code")
@@ -490,7 +386,16 @@ class ProductAttributesForm(forms.ModelForm):
         model = ProductAttribute
         fields = ["name", "code", "type", "option_group", "required"]
 
-ProductAttributesFormSet = inlineformset_factory(ProductClass,
-                                                 ProductAttribute,
-                                                 form=ProductAttributesForm,
-                                                 extra=3)
+
+class AttributeOptionGroupForm(forms.ModelForm):
+
+    class Meta:
+        model = AttributeOptionGroup
+        fields = ['name']
+
+
+class AttributeOptionForm(forms.ModelForm):
+
+    class Meta:
+        model = AttributeOption
+        fields = ['option']

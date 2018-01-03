@@ -10,11 +10,15 @@ from django.utils.timezone import now
 from django.utils.translation import ugettext_lazy as _
 
 from oscar.apps.basket.managers import OpenBasketManager, SavedBasketManager
-from oscar.apps.offer import results
-from oscar.apps.partner import availability
 from oscar.core.compat import AUTH_USER_MODEL
+from oscar.core.loading import get_class
 from oscar.core.utils import get_default_currency
+from oscar.models.fields.slugfield import SlugField
 from oscar.templatetags.currency_filters import currency
+
+OfferApplications = get_class('offer.results', 'OfferApplications')
+Unavailable = get_class('partner.availability', 'Unavailable')
+LineOfferConsumer = get_class('basket.utils', 'LineOfferConsumer')
 
 
 @python_2_unicode_compatible
@@ -25,7 +29,10 @@ class AbstractBasket(models.Model):
     # Baskets can be anonymously owned - hence this field is nullable.  When a
     # anon user signs in, their two baskets are merged.
     owner = models.ForeignKey(
-        AUTH_USER_MODEL, related_name='baskets', null=True,
+        AUTH_USER_MODEL,
+        null=True,
+        related_name='baskets',
+        on_delete=models.CASCADE,
         verbose_name=_("Owner"))
 
     # Basket statuses
@@ -76,7 +83,7 @@ class AbstractBasket(models.Model):
         # so we want to avoid reloading them as this would drop the discount
         # information.
         self._lines = None
-        self.offer_applications = results.OfferApplications()
+        self.offer_applications = OfferApplications()
 
     def __str__(self):
         return _(
@@ -124,14 +131,15 @@ class AbstractBasket(models.Model):
                 self.lines
                 .select_related('product', 'stockrecord')
                 .prefetch_related(
-                    'attributes', 'product__images'))
+                    'attributes', 'product__images')
+                .order_by(self._meta.pk.name))
         return self._lines
 
     def is_quantity_allowed(self, qty):
         """
         Test whether the passed quantity of items can be added to the basket
         """
-        # We enfore a max threshold to prevent a DOS attack via the offers
+        # We enforce a max threshold to prevent a DOS attack via the offers
         # system.
         basket_threshold = settings.OSCAR_MAX_BASKET_QUANTITY_THRESHOLD
         if basket_threshold:
@@ -157,6 +165,14 @@ class AbstractBasket(models.Model):
         self.lines.all().delete()
         self._lines = None
 
+    def get_stock_info(self, product, options):
+        """
+        Hook for implementing strategies that depend on product options
+        """
+        # The built-in strategies don't use options, so initially disregard
+        # them.
+        return self.strategy.fetch_for_product(product)
+
     def add_product(self, product, quantity=1, options=None):
         """
         Add a product to the basket
@@ -180,7 +196,7 @@ class AbstractBasket(models.Model):
 
         # Ensure that all lines are the same currency
         price_currency = self.currency
-        stock_info = self.strategy.fetch_for_product(product)
+        stock_info = self.get_stock_info(product, options)
         if price_currency and stock_info.price.currency != price_currency:
             raise ValueError((
                 "Basket lines must all have the same currency. Proposed "
@@ -239,7 +255,7 @@ class AbstractBasket(models.Model):
         """
         Remove any discounts so they get recalculated
         """
-        self.offer_applications = results.OfferApplications()
+        self.offer_applications = OfferApplications()
         self._lines = None
 
     def merge_line(self, line, add_quantities=True):
@@ -357,7 +373,7 @@ class AbstractBasket(models.Model):
                 pass
             except TypeError:
                 # Handle Unavailable products with no known price
-                info = self.strategy.fetch_for_product(line.product)
+                info = self.get_stock_info(line.product, line.attributes.all())
                 if info.availability.is_available_to_buy:
                     raise
                 pass
@@ -560,42 +576,51 @@ class AbstractBasket(models.Model):
 
 @python_2_unicode_compatible
 class AbstractLine(models.Model):
-    """
-    A line of a basket (product and a quantity)
+    """A line of a basket (product and a quantity)
 
     Common approaches on ordering basket lines:
-    a) First added at top. That's the history-like approach; new items are
-       added to the bottom of the list. Changing quantities doesn't impact
-       position.
-       Oscar does this by default. It just sorts by Line.pk, which is
-       guaranteed to increment after each creation.
-    b) Last modified at top. That means items move to the top when you add
-       another one, and new items are added to the top as well.
-       Amazon mostly does this, but doesn't change the position when you
-       update the quantity in the basket view.
-       To get this behaviour, add a date_updated field, change
-       Meta.ordering and optionally do something similar on wishlist lines.
-       Order lines should already be created in the order of the basket lines,
-       and are sorted by their primary key, so no changes should be necessary
-       there.
+
+        a) First added at top. That's the history-like approach; new items are
+           added to the bottom of the list. Changing quantities doesn't impact
+           position.
+           Oscar does this by default. It just sorts by Line.pk, which is
+           guaranteed to increment after each creation.
+
+        b) Last modified at top. That means items move to the top when you add
+           another one, and new items are added to the top as well.  Amazon
+           mostly does this, but doesn't change the position when you update
+           the quantity in the basket view.
+           To get this behaviour, add a date_updated field, change
+           Meta.ordering and optionally do something similar on wishlist lines.
+           Order lines should already be created in the order of the basket
+           lines, and are sorted by their primary key, so no changes should be
+           necessary there.
+
     """
-    basket = models.ForeignKey('basket.Basket', related_name='lines',
-                               verbose_name=_("Basket"))
+    basket = models.ForeignKey(
+        'basket.Basket',
+        on_delete=models.CASCADE,
+        related_name='lines',
+        verbose_name=_("Basket"))
 
     # This is to determine which products belong to the same line
     # We can't just use product.id as you can have customised products
     # which should be treated as separate lines.  Set as a
     # SlugField as it is included in the path for certain views.
-    line_reference = models.SlugField(
+    line_reference = SlugField(
         _("Line Reference"), max_length=128, db_index=True)
 
     product = models.ForeignKey(
-        'catalogue.Product', related_name='basket_lines',
+        'catalogue.Product',
+        on_delete=models.CASCADE,
+        related_name='basket_lines',
         verbose_name=_("Product"))
 
     # We store the stockrecord that should be used to fulfil this line.
     stockrecord = models.ForeignKey(
-        'partner.StockRecord', related_name='basket_lines')
+        'partner.StockRecord',
+        on_delete=models.CASCADE,
+        related_name='basket_lines')
 
     quantity = models.PositiveIntegerField(_('Quantity'), default=1)
 
@@ -618,7 +643,7 @@ class AbstractLine(models.Model):
         # Instance variables used to persist discount information
         self._discount_excl_tax = D('0.00')
         self._discount_incl_tax = D('0.00')
-        self._affected_quantity = 0
+        self.consumer = LineOfferConsumer(self)
 
     class Meta:
         abstract = True
@@ -653,9 +678,10 @@ class AbstractLine(models.Model):
         """
         self._discount_excl_tax = D('0.00')
         self._discount_incl_tax = D('0.00')
-        self._affected_quantity = 0
+        self.consumer = LineOfferConsumer(self)
 
-    def discount(self, discount_value, affected_quantity, incl_tax=True):
+    def discount(self, discount_value, affected_quantity, incl_tax=True,
+                 offer=None):
         """
         Apply a discount to this line
         """
@@ -671,19 +697,15 @@ class AbstractLine(models.Model):
                     "Attempting to discount the tax-exclusive price of a line "
                     "when tax-inclusive discounts are already applied")
             self._discount_excl_tax += discount_value
-        self._affected_quantity += int(affected_quantity)
+        self.consume(affected_quantity, offer=offer)
 
-    def consume(self, quantity):
+    def consume(self, quantity, offer=None):
         """
         Mark all or part of the line as 'consumed'
 
         Consumed items are no longer available to be used in offers.
         """
-        if quantity > self.quantity - self._affected_quantity:
-            inc = self.quantity - self._affected_quantity
-        else:
-            inc = quantity
-        self._affected_quantity += int(inc)
+        self.consumer.consume(quantity, offer=offer)
 
     def get_price_breakdown(self):
         """
@@ -703,12 +725,12 @@ class AbstractLine(models.Model):
             # Need to split the discount among the affected quantity
             # of products.
             item_incl_tax_discount = (
-                self.discount_value / int(self._affected_quantity))
+                self.discount_value / int(self.consumer.consumed()))
             item_excl_tax_discount = item_incl_tax_discount * self._tax_ratio
             item_excl_tax_discount = item_excl_tax_discount.quantize(D('0.01'))
             prices.append((self.unit_price_incl_tax - item_incl_tax_discount,
                            self.unit_price_excl_tax - item_excl_tax_discount,
-                           self._affected_quantity))
+                           self.consumer.consumed()))
             if self.quantity_without_discount:
                 prices.append((self.unit_price_incl_tax,
                                self.unit_price_excl_tax,
@@ -725,25 +747,42 @@ class AbstractLine(models.Model):
             return 0
         return self.unit_price_excl_tax / self.unit_price_incl_tax
 
+    # ===============
+    # Offer Discounts
+    # ===============
+
+    def has_offer_discount(self, offer):
+        return self.consumer.consumed(offer) > 0
+
+    def quantity_with_offer_discount(self, offer):
+        return self.consumer.consumed(offer)
+
+    def quantity_without_offer_discount(self, offer):
+        return self.consumer.available(offer)
+
+    def is_available_for_offer_discount(self, offer):
+        return self.consumer.available(offer) > 0
+
     # ==========
     # Properties
     # ==========
 
     @property
     def has_discount(self):
-        return self.quantity > self.quantity_without_discount
+        return bool(self.consumer.consumed())
 
     @property
     def quantity_with_discount(self):
-        return self._affected_quantity
+        return self.consumer.consumed()
 
     @property
     def quantity_without_discount(self):
-        return int(self.quantity - self._affected_quantity)
+        return self.consumer.available()
 
     @property
     def is_available_for_discount(self):
-        return self.quantity_without_discount > 0
+        # deprecated
+        return self.consumer.available() > 0
 
     @property
     def discount_value(self):
@@ -786,13 +825,14 @@ class AbstractLine(models.Model):
 
     @property
     def line_price_excl_tax(self):
-        return self.quantity * self.unit_price_excl_tax
+        if self.unit_price_excl_tax is not None:
+            return self.quantity * self.unit_price_excl_tax
 
     @property
     def line_price_excl_tax_incl_discounts(self):
-        if self._discount_excl_tax:
+        if self._discount_excl_tax and self.line_price_excl_tax is not None:
             return self.line_price_excl_tax - self._discount_excl_tax
-        if self._discount_incl_tax:
+        if self._discount_incl_tax and self.line_price_incl_tax is not None:
             # This is a tricky situation.  We know the discount as calculated
             # against tax inclusive prices but we need to guess how much of the
             # discount applies to tax-exclusive prices.  We do this by
@@ -806,15 +846,18 @@ class AbstractLine(models.Model):
         # We use whichever discount value is set.  If the discount value was
         # calculated against the tax-exclusive prices, then the line price
         # including tax
-        return self.line_price_incl_tax - self.discount_value
+        if self.line_price_incl_tax is not None:
+            return self.line_price_incl_tax - self.discount_value
 
     @property
     def line_tax(self):
-        return self.quantity * self.unit_tax
+        if self.is_tax_known:
+            return self.quantity * self.unit_tax
 
     @property
     def line_price_incl_tax(self):
-        return self.quantity * self.unit_price_incl_tax
+        if self.unit_price_incl_tax is not None:
+            return self.quantity * self.unit_price_incl_tax
 
     @property
     def description(self):
@@ -832,7 +875,7 @@ class AbstractLine(models.Model):
 
         This could be things like the price has changed
         """
-        if isinstance(self.purchase_info.availability, availability.Unavailable):
+        if isinstance(self.purchase_info.availability, Unavailable):
             msg = u"'%(product)s' is no longer available"
             return _(msg) % {'product': self.product.get_title()}
 
@@ -865,9 +908,15 @@ class AbstractLineAttribute(models.Model):
     """
     An attribute of a basket line
     """
-    line = models.ForeignKey('basket.Line', related_name='attributes',
-                             verbose_name=_("Line"))
-    option = models.ForeignKey('catalogue.Option', verbose_name=_("Option"))
+    line = models.ForeignKey(
+        'basket.Line',
+        on_delete=models.CASCADE,
+        related_name='attributes',
+        verbose_name=_("Line"))
+    option = models.ForeignKey(
+        'catalogue.Option',
+        on_delete=models.CASCADE,
+        verbose_name=_("Option"))
     value = models.CharField(_("Value"), max_length=255)
 
     class Meta:

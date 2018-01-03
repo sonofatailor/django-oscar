@@ -9,11 +9,18 @@ Please follow these conventions while remaining sensible:
 
 * `PEP8 -- Style Guide for Python Code <http://www.python.org/dev/peps/pep-0008/>`_
 * `PEP257 -- Docstring Conventions <http://www.python.org/dev/peps/pep-0257/>`_
-* `Django Coding Style <http://docs.djangoproject.com/en/dev/internals/contributing/writing-code/coding-style/>`_
+* `Django Coding Style <http://docs.djangoproject.com/en/stable/internals/contributing/writing-code/coding-style/>`_
 
 `Code Like a Pythonista`_ is recommended reading.
 
+flake8_ and isort_ are used to enforce basic coding standards. To run these
+checks, use:
+
+    $ make lint
+
 .. _Code Like a Pythonista: http://python.net/~goodger/projects/pycon/2007/idiomatic/handout.html
+.. _flake8: http://flake8.pycqa.org/en/latest/
+.. _isort: http://timothycrosley.github.io/isort/
 
 URLs
 ----
@@ -22,7 +29,7 @@ URLs
 
 * Detail pages should simply be a PK/slug on top of the list page; e.g.
   ``/products/the-bible/``, ``/notifications/1/``
-  
+
 * Create pages should have 'create' as the final path segment; e.g.
   ``/dashboard/notifications/create/``
 

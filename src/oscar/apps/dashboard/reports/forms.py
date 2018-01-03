@@ -2,6 +2,7 @@ from django import forms
 from django.utils.translation import ugettext_lazy as _
 
 from oscar.core.loading import get_class
+from oscar.forms.widgets import DatePickerInput
 
 GeneratorRepository = get_class('dashboard.reports.utils',
                                 'GeneratorRepository')
@@ -20,16 +21,19 @@ class ReportForm(forms.Form):
                                                 " reports use the selected"
                                                 " date range"))
 
-    date_from = forms.DateField(label=_("Date from"), required=False)
+    date_from = forms.DateField(label=_("Date from"), required=False,
+                                widget=DatePickerInput)
     date_to = forms.DateField(label=_("Date to"),
                               help_text=_("The report is inclusive of this"
                                           " date"),
-                              required=False)
+                              required=False,
+                              widget=DatePickerInput)
     download = forms.BooleanField(label=_("Download"), required=False)
 
     def clean(self):
-        if ('date_from' in self.cleaned_data and 'date_to' in self.cleaned_data
-                and self.cleaned_data['date_from'] >
+        date_from = self.cleaned_data.get('date_from', None)
+        date_to = self.cleaned_data.get('date_to', None)
+        if (all([date_from, date_to]) and self.cleaned_data['date_from'] >
                 self.cleaned_data['date_to']):
             raise forms.ValidationError(_("Your start date must be before your"
                                           " end date"))

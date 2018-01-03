@@ -9,14 +9,14 @@ from django.utils.translation import ugettext_lazy as _
 from django.views.generic import (
     CreateView, DeleteView, FormView, ListView, UpdateView, View)
 
-from oscar.core.loading import get_class, get_classes, get_model
+from oscar.core.loading import get_class, get_model
 from oscar.core.utils import redirect_to_referrer, safe_referrer
 
 WishList = get_model('wishlists', 'WishList')
 Line = get_model('wishlists', 'Line')
 Product = get_model('catalogue', 'Product')
-WishListForm, LineFormset = get_classes('wishlists.forms',
-                                        ['WishListForm', 'LineFormset'])
+WishListForm = get_class('wishlists.forms', 'WishListForm')
+LineFormset = get_class('wishlists.formsets', 'LineFormset')
 PageTitleMixin = get_class('customer.mixins', 'PageTitleMixin')
 
 
@@ -312,13 +312,20 @@ class WishListMoveProductToAnotherWishList(LineMixin, View):
     def get(self, request, *args, **kwargs):
         to_wishlist = get_object_or_404(
             WishList, owner=request.user, key=kwargs['to_key'])
-        self.line.wishlist = to_wishlist
-        self.line.save()
 
-        msg = _("'%(title)s' moved to '%(name)s' wishlist") % {
-            'title': self.product.get_title(),
-            'name': to_wishlist.name}
-        messages.success(self.request, msg)
+        if to_wishlist.lines.filter(product=self.line.product).count() > 0:
+            msg = _("Wish list '%(name)s' already containing '%(title)s'") % {
+                'title': self.product.get_title(),
+                'name': to_wishlist.name}
+            messages.error(self.request, msg)
+        else:
+            self.line.wishlist = to_wishlist
+            self.line.save()
+
+            msg = _("'%(title)s' moved to '%(name)s' wishlist") % {
+                'title': self.product.get_title(),
+                'name': to_wishlist.name}
+            messages.success(self.request, msg)
 
         default_url = reverse(
             'customer:wishlists-detail', kwargs={'key': self.wishlist.key})

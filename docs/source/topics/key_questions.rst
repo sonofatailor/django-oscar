@@ -47,11 +47,11 @@ theme, by product type).  Other questions to consider:
 How are products managed?
 -------------------------
 
-Is the catalogue managed by a admin using a dashboard, or though an automated
+Is the catalogue managed by an admin using a dashboard, or though an automated
 process, such as processing feeds from a fulfillment system?  Where are your
 product images going to be served from?
 
-* :doc:`/howto/how_to_disable_an_app`
+* :doc:`/howto/how_to_disable_an_app_or_feature`
 
 Pricing, stock and availability
 ===============================

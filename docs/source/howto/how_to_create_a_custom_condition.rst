@@ -15,6 +15,7 @@ Custom condition classes must be proxy models, subclassing Oscar's main
 
 At a minimum, a custom condition must:
 
+* have a ``name`` attribute which with the condition name.
 * have a ``description`` attribute which describes what needs to happen to
   satisfy the condition (eg "basket must have 4 items").
 * have an ``is_satisfied`` method that takes a basket instance and an offer
@@ -69,4 +70,4 @@ Deploying custom conditions
 To avoid manual steps in each of your test/stage/production environments, use
 South's `data migrations`_ to create conditions.
 
-.. _`data migrations`: http://south.readthedocs.org/en/latest/tutorial/part3.html#data-migrations
+.. _`data migrations`: https://south.readthedocs.io/en/latest/tutorial/part3.html#data-migrations
